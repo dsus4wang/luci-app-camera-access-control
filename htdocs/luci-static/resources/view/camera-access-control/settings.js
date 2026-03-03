@@ -84,6 +84,7 @@ return view.extend({
 			/* Apply button */
 			var applyBtn = E('button', {
 				'class': 'cbi-button cbi-button-apply',
+				'type': 'button',
 				'click': function() {
 					applyBtn.disabled = true;
 					applyBtn.textContent = _('Applying…');
@@ -99,6 +100,12 @@ return view.extend({
 								E('p', {}, _('Failed to apply rules: ') + result),
 								'error');
 						}
+					}).catch(function(err) {
+						applyBtn.disabled = false;
+						applyBtn.textContent = _('Apply Rules Now');
+						ui.addNotification(null,
+							E('p', {}, _('Failed to apply rules: ') + (err && err.message ? err.message : err)),
+							'error');
 					});
 				}
 			}, _('Apply Rules Now'));
@@ -107,6 +114,7 @@ return view.extend({
 			var testBtn = E('button', {
 				'class': 'cbi-button cbi-button-neutral',
 				'style': 'margin-left:8px',
+				'type': 'button',
 				'click': function() {
 					testBtn.disabled = true;
 					testBtn.textContent = _('Sending…');
@@ -122,6 +130,12 @@ return view.extend({
 								E('p', {}, _('Failed to send test alert: ') + result),
 								'error');
 						}
+					}).catch(function(err) {
+						testBtn.disabled = false;
+						testBtn.textContent = _('Send Test Alert');
+						ui.addNotification(null,
+							E('p', {}, _('Failed to send test alert: ') + (err && err.message ? err.message : err)),
+							'error');
 					});
 				}
 			}, _('Send Test Alert'));

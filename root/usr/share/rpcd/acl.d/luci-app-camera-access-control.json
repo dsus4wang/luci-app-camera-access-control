@@ -7,7 +7,7 @@
 				"/etc/config/camera_access_control": [ "r" ]
 			},
 			"ubus": {
-				"luci.camera_access_control": [ "status", "apply" ]
+				"luci.camera_access_control": [ "status", "apply", "test_alert" ]
 			}
 		},
 		"write": {
