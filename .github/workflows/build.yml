@@ -75,7 +75,10 @@ jobs:
       - name: Generate SDK .config
         run: |
           cd openwrt-sdk
-          # Generate a default .config so 'make' never tries to open menuconfig
+          # Select our package so defconfig pulls in the full dependency tree
+          # (luci-app → luci-base → lucihttp → liblua, etc.) and stages them
+          # in the right order before the compile step.
+          echo "CONFIG_PACKAGE_${{ env.PKG_NAME }}=m" >> .config
           make defconfig
 
       - name: Build package
