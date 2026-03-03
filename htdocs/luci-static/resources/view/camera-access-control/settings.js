@@ -25,7 +25,7 @@ var callStatus = rpc.declare({
 
 return view.extend({
 	load: function() {
-		return callStatus();
+		return L.resolveDefault(callStatus(), {});
 	},
 
 	render: function(status) {
