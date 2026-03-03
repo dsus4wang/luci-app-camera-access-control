@@ -39,6 +39,6 @@ reload_service() {
 }
 
 service_triggers() {
-	# Re-apply rules when the network configuration changes
-	procd_add_reload_trigger network
+	# Re-apply rules when camera control or network configuration changes
+	procd_add_reload_trigger camera_access_control network
 }
