@@ -1,0 +1,128 @@
+name: Build OpenWrt x86_64 Package
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    name: Build luci-app-camera-access-control (x86_64, OpenWrt 23.05)
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write   # needed to create releases and upload release assets
+
+    env:
+      OPENWRT_VERSION: "23.05.5"
+      SDK_ARCHIVE: "openwrt-sdk-23.05.5-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+      SDK_URL: "https://downloads.openwrt.org/releases/23.05.5/targets/x86/64/openwrt-sdk-23.05.5-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+      PKG_NAME: "luci-app-camera-access-control"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ccache file g++ gawk gettext git \
+            libelf-dev libncurses5-dev libncursesw5-dev libssl-dev \
+            python3 python3-setuptools rsync subversion swig \
+            time unzip wget xsltproc zlib1g-dev
+
+      # Cache the SDK to avoid re-downloading on every run
+      - name: Cache OpenWrt SDK
+        id: cache-sdk
+        uses: actions/cache@v4
+        with:
+          path: openwrt-sdk
+          key: openwrt-sdk-${{ env.OPENWRT_VERSION }}-x86_64
+
+      - name: Download and extract OpenWrt SDK
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        run: |
+          wget -q "${{ env.SDK_URL }}" -O "${{ env.SDK_ARCHIVE }}"
+          mkdir openwrt-sdk
+          tar -xf "${{ env.SDK_ARCHIVE }}" -C openwrt-sdk --strip-components=1
+          rm -f "${{ env.SDK_ARCHIVE }}"
+
+      - name: Copy package into SDK
+        run: |
+          pkg_dir="openwrt-sdk/package/${{ env.PKG_NAME }}"
+          mkdir -p "$pkg_dir"
+          # Copy everything except the .git directory and the sdk itself
+          rsync -a --exclude='.git' --exclude='openwrt-sdk' \
+            --exclude='.github' . "$pkg_dir/"
+
+      - name: Configure SDK feeds
+        run: |
+          cd openwrt-sdk
+          # Use the official luci feed so luci-base and friends are available
+          printf 'src-git packages https://git.openwrt.org/feed/packages.git;openwrt-23.05\n' >  feeds.conf.default
+          printf 'src-git luci    https://git.openwrt.org/project/luci.git;openwrt-23.05\n'   >> feeds.conf.default
+          ./scripts/feeds update packages luci
+          ./scripts/feeds install -a -p packages
+          # Install only luci-base (and its transitive deps) from the luci feed.
+          # Installing all luci packages (-a -p luci) causes old Lua-based modules
+          # to select CONFIG_PACKAGE_liblucihttp-lua=m, which forces BUILD_LUA=ON
+          # in lucihttp's CMake and requires lua.h — but liblua is a base OpenWrt
+          # package whose headers are not pre-staged in the 23.05 SDK tarball.
+          ./scripts/feeds install luci-base
+
+      - name: Generate SDK .config
+        run: |
+          cd openwrt-sdk
+          # Select our package so defconfig pulls in the full dependency tree
+          # (luci-app → luci-base → lucihttp → liblua, etc.) and stages them
+          # in the right order before the compile step.
+          echo "CONFIG_PACKAGE_${{ env.PKG_NAME }}=m" >> .config
+          make defconfig
+
+      - name: Build package
+        run: |
+          cd openwrt-sdk
+          make package/${{ env.PKG_NAME }}/compile V=s
+          echo "--- Build finished ---"
+
+      - name: Collect built .ipk files
+        run: |
+          mkdir -p /tmp/artifacts
+          find openwrt-sdk/bin/packages -name "${{ env.PKG_NAME }}*.ipk" \
+            -exec cp {} /tmp/artifacts/ \;
+          # Print what we collected
+          echo "=== Built packages ==="
+          ls -lh /tmp/artifacts/
+
+      - name: Upload .ipk as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PKG_NAME }}-ipk
+          path: /tmp/artifacts/*.ipk
+          if-no-files-found: error
+          retention-days: 30
+
+      # ---- Release (only on v* tag pushes) ----
+      - name: Create GitHub Release and attach .ipk
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: /tmp/artifacts/*.ipk
+          generate_release_notes: true
+          body: |
+            ## ${{ env.PKG_NAME }} ${{ github.ref_name }}
+
+            Built against OpenWrt ${{ env.OPENWRT_VERSION }} (x86_64).
+
+            ### Installation
+            Copy the `.ipk` file to your router and install with:
+            ```sh
+            opkg install luci-app-camera-access-control_*.ipk
+            ```

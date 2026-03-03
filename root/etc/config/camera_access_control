@@ -1,0 +1,3 @@
+config global 'settings'
+	option dingtalk_webhook_url ''
+	option dingtalk_interval '5'

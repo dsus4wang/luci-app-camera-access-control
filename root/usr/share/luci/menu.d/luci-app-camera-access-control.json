@@ -1,0 +1,30 @@
+{
+	"admin/services/camera-access-control": {
+		"title": "Camera Access Control",
+		"order": 60
+	},
+	"admin/services/camera-access-control/cameras": {
+		"title": "Cameras",
+		"order": 10,
+		"action": {
+			"type": "view",
+			"path": "camera-access-control/cameras"
+		}
+	},
+	"admin/services/camera-access-control/policies": {
+		"title": "Policies",
+		"order": 20,
+		"action": {
+			"type": "view",
+			"path": "camera-access-control/policies"
+		}
+	},
+	"admin/services/camera-access-control/settings": {
+		"title": "Settings",
+		"order": 30,
+		"action": {
+			"type": "view",
+			"path": "camera-access-control/settings"
+		}
+	}
+}
