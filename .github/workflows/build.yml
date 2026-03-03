@@ -70,7 +70,12 @@ jobs:
           printf 'src-git luci    https://git.openwrt.org/project/luci.git;openwrt-23.05\n'   >> feeds.conf.default
           ./scripts/feeds update packages luci
           ./scripts/feeds install -a -p packages
-          ./scripts/feeds install -a -p luci
+          # Install only luci-base (and its transitive deps) from the luci feed.
+          # Installing all luci packages (-a -p luci) causes old Lua-based modules
+          # to select CONFIG_PACKAGE_liblucihttp-lua=m, which forces BUILD_LUA=ON
+          # in lucihttp's CMake and requires lua.h — but liblua is a base OpenWrt
+          # package whose headers are not pre-staged in the 23.05 SDK tarball.
+          ./scripts/feeds install luci-base
 
       - name: Generate SDK .config
         run: |
