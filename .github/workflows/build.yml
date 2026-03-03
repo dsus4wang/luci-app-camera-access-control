@@ -50,8 +50,9 @@ jobs:
         if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
           wget -q "${{ env.SDK_URL }}" -O "${{ env.SDK_ARCHIVE }}"
-          tar -xf "${{ env.SDK_ARCHIVE }}"
-          mv openwrt-sdk-* openwrt-sdk
+          mkdir openwrt-sdk
+          tar -xf "${{ env.SDK_ARCHIVE }}" -C openwrt-sdk --strip-components=1
+          rm -f "${{ env.SDK_ARCHIVE }}"
 
       - name: Copy package into SDK
         run: |
@@ -68,11 +69,10 @@ jobs:
           cat > feeds.conf.default <<'EOF'
           src-git packages https://git.openwrt.org/feed/packages.git;openwrt-23.05
           src-git luci https://git.openwrt.org/project/luci.git;openwrt-23.05
-          src-git routing https://git.openwrt.org/feed/routing.git;openwrt-23.05
           EOF
-          ./scripts/feeds update luci packages
-          ./scripts/feeds install -a -p luci
+          ./scripts/feeds update packages luci
           ./scripts/feeds install -a -p packages
+          ./scripts/feeds install -a -p luci
 
       - name: Build package
         run: |
