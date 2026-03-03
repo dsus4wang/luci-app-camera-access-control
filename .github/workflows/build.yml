@@ -21,6 +21,7 @@ jobs:
 
     env:
       OPENWRT_VERSION: "23.05.5"
+      OPENWRT_FEED_BRANCH: "openwrt-23.05"
       SDK_ARCHIVE: "openwrt-sdk-23.05.5-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
       SDK_URL: "https://downloads.openwrt.org/releases/23.05.5/targets/x86/64/openwrt-sdk-23.05.5-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
       PKG_NAME: "luci-app-camera-access-control"
@@ -63,8 +64,8 @@ jobs:
       - name: Configure SDK feeds
         run: |
           cd openwrt-sdk
-          printf 'src-git packages https://git.openwrt.org/feed/packages.git;openwrt-23.05\n' >  feeds.conf.default
-          printf 'src-git luci    https://git.openwrt.org/project/luci.git;openwrt-23.05\n'   >> feeds.conf.default
+          printf 'src-git packages https://git.openwrt.org/feed/packages.git;%s\n' "${{ env.OPENWRT_FEED_BRANCH }}" > feeds.conf.default
+          printf 'src-git luci    https://git.openwrt.org/project/luci.git;%s\n' "${{ env.OPENWRT_FEED_BRANCH }}" >> feeds.conf.default
           ./scripts/feeds update packages luci
           ./scripts/feeds install -a -p packages
           ./scripts/feeds install -a -p luci
@@ -114,5 +115,5 @@ jobs:
             ### Installation
             Copy the `.ipk` file to your router and install with:
             ```sh
-            opkg install luci-app-camera-access-control_*.ipk
+            opkg install ${{ env.PKG_NAME }}_*.ipk
             ```
