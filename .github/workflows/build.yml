@@ -66,13 +66,17 @@ jobs:
         run: |
           cd openwrt-sdk
           # Use the official luci feed so luci-base and friends are available
-          cat > feeds.conf.default <<'EOF'
-          src-git packages https://git.openwrt.org/feed/packages.git;openwrt-23.05
-          src-git luci https://git.openwrt.org/project/luci.git;openwrt-23.05
-          EOF
+          printf 'src-git packages https://git.openwrt.org/feed/packages.git;openwrt-23.05\n' >  feeds.conf.default
+          printf 'src-git luci    https://git.openwrt.org/project/luci.git;openwrt-23.05\n'   >> feeds.conf.default
           ./scripts/feeds update packages luci
           ./scripts/feeds install -a -p packages
           ./scripts/feeds install -a -p luci
+
+      - name: Generate SDK .config
+        run: |
+          cd openwrt-sdk
+          # Generate a default .config so 'make' never tries to open menuconfig
+          make defconfig
 
       - name: Build package
         run: |
