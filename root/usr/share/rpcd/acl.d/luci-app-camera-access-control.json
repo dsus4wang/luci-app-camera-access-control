@@ -1,0 +1,23 @@
+{
+	"luci-app-camera-access-control": {
+		"description": "Grant access to luci-app-camera-access-control",
+		"read": {
+			"uci": [ "camera_access_control" ],
+			"file": {
+				"/etc/config/camera_access_control": [ "r" ]
+			},
+			"ubus": {
+				"luci.camera_access_control": [ "status", "apply" ]
+			}
+		},
+		"write": {
+			"uci": [ "camera_access_control" ],
+			"file": {
+				"/etc/config/camera_access_control": [ "w" ]
+			},
+			"ubus": {
+				"luci.camera_access_control": [ "status", "apply", "test_alert" ]
+			}
+		}
+	}
+}

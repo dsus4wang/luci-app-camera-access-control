@@ -1,0 +1,44 @@
+#!/bin/sh /etc/rc.common
+#
+# /etc/init.d/camera-access-control
+# OpenWrt init script for Camera Access Control
+#
+
+START=95
+STOP=10
+USE_PROCD=1
+
+SCRIPT="/usr/share/camera-access-control/camera-access-control.sh"
+CRON_TAG="camera-access-control"
+
+start_service() {
+	# Apply nftables rules immediately
+	$SCRIPT apply
+
+	# Add a cron job to re-evaluate policies every minute and check alerts
+	if ! grep -q "$CRON_TAG" /etc/crontabs/root 2>/dev/null; then
+		echo "* * * * * $SCRIPT apply  # $CRON_TAG" >> /etc/crontabs/root
+		echo "* * * * * $SCRIPT check_alerts  # $CRON_TAG" >> /etc/crontabs/root
+		/etc/init.d/cron restart 2>/dev/null || true
+	fi
+}
+
+stop_service() {
+	# Remove cron jobs
+	if [ -f /etc/crontabs/root ]; then
+		sed -i "/${CRON_TAG}/d" /etc/crontabs/root
+		/etc/init.d/cron restart 2>/dev/null || true
+	fi
+
+	# Remove nftables rules
+	$SCRIPT stop
+}
+
+reload_service() {
+	$SCRIPT apply
+}
+
+service_triggers() {
+	# Re-apply rules when the network configuration changes
+	procd_add_reload_trigger network
+}

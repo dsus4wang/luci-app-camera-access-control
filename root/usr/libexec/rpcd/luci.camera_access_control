@@ -1,0 +1,91 @@
+#!/bin/sh
+#
+# /usr/libexec/rpcd/luci.camera_access_control
+# rpcd backend for luci-app-camera-access-control
+#
+
+SCRIPT="/usr/share/camera-access-control/camera-access-control.sh"
+
+case "$1" in
+	list)
+		cat <<'EOF'
+{
+	"status": {},
+	"apply": {},
+	"test_alert": {
+		"camera_ip": "str",
+		"camera_name": "str"
+	}
+}
+EOF
+		;;
+	call)
+		case "$2" in
+			status)
+				# Return current nftables rules in our chain and service status
+				running=0
+				grep -q "camera-access-control" /etc/crontabs/root 2>/dev/null && running=1
+
+				rules=""
+				if nft list chain inet fw4 camera_access_control >/dev/null 2>&1; then
+					rules=$(nft list chain inet fw4 camera_access_control 2>/dev/null | \
+						awk 'NR>2 && NF>0 && !/^}/' | \
+						sed 's/"/\\"/g' | \
+						awk '{printf "%s\\n", $0}' | \
+						head -c 4096)
+				fi
+
+				printf '{"running":%d,"rules":"%s"}\n' "$running" "$rules"
+				;;
+
+			apply)
+				if $SCRIPT apply 2>&1; then
+					printf '{"result":"success"}\n'
+				else
+					printf '{"result":"error","message":"Failed to apply rules"}\n'
+				fi
+				;;
+
+			test_alert)
+				# Read JSON params from stdin
+				json=$(cat)
+				camera_ip=$(echo "$json" | grep -o '"camera_ip":"[^"]*"' | cut -d'"' -f4)
+				camera_name=$(echo "$json" | grep -o '"camera_name":"[^"]*"' | cut -d'"' -f4)
+
+				[ -z "$camera_ip" ]   && camera_ip="test-camera"
+				[ -z "$camera_name" ] && camera_name="Test Camera"
+
+				webhook_url=$(uci get camera_access_control.settings.dingtalk_webhook_url 2>/dev/null)
+				if [ -z "$webhook_url" ]; then
+					printf '{"result":"error","message":"DingTalk webhook URL not configured"}\n'
+					exit 0
+				fi
+
+				# Sanitize inputs to prevent JSON injection
+				camera_ip=$(printf '%s' "$camera_ip" | tr -dc 'A-Za-z0-9.:_-')
+				camera_name=$(printf '%s' "$camera_name" | sed 's/\\/\\\\/g; s/"/\\"/g')
+
+				msg="【摄像头访问控制测试】摄像头 ${camera_name}（${camera_ip}）测试消息发送成功。"
+				http_code=$(curl -s -o /dev/null -w "%{http_code}" -m 10 -X POST "$webhook_url" \
+					-H 'Content-Type: application/json' \
+					-d "{\"msgtype\":\"text\",\"text\":{\"content\":\"${msg}\"}}" 2>/dev/null)
+
+				if [ "$http_code" = "200" ]; then
+					printf '{"result":"success"}\n'
+				else
+					printf '{"result":"error","message":"HTTP %s"}\n' "$http_code"
+				fi
+				;;
+
+			*)
+				printf '{"error":"unknown method"}\n'
+				exit 1
+				;;
+		esac
+		;;
+
+	*)
+		echo "Usage: $0 {list|call}" >&2
+		exit 1
+		;;
+esac
